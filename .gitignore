@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+dist
+CONTEXT.md
+.tanstack
+.env
+.superpowers/
+.playwright-mcp
+stt-demo-runtime-export/
