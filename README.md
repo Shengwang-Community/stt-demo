@@ -32,7 +32,6 @@ bun run dev
 bun run dev      # 本地开发
 bun run build    # 生产构建
 bun run preview  # 预览生产构建
-bun run test     # 运行测试
 ```
 
 ## 必填参数
@@ -164,7 +163,6 @@ VITE_LOCALE="en-US"
 这份代码包由上游仓库的 `bun run export:runtime` 生成，包含以下运行所需文件：
 
 - `.gitignore`
-- `AGENTS.md`
 - `biome.json`
 - `bun.lock`
 - `env.example`
@@ -176,4 +174,4 @@ VITE_LOCALE="en-US"
 - `public`
 - `README.md`，也就是当前启动说明
 
-导出包不包含 `.env`、`.git/`、`node_modules/`、`dist/`、`deploy/` 和 `docs/`。导出的 `.gitignore` 复制自上游仓库，会继续防止目标 repo 误提交本地 `.env`。
+导出包不包含 `.env`、`.git/`、`node_modules/`、`dist/`、`deploy/`、`docs/`、测试文件和 agent 专用说明。导出的 `.gitignore` 复制自上游仓库，会继续防止目标 repo 误提交本地 `.env`。
