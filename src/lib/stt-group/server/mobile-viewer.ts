@@ -1,5 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { createHumanUid, isValidChannelName } from "../domain";
+import {
+	createHumanUid,
+	isValidChannelName,
+	type RtmTokenResponse,
+} from "../domain";
 import type {
 	MobileViewerLinkRequest,
 	MobileViewerLinkResponse,
@@ -8,7 +12,7 @@ import type {
 } from "../mobile-viewer";
 import { getMobileViewerServerConfig } from "./env";
 import { getSttSessionStatus } from "./stt-rest";
-import { createRtcToken } from "./tokens";
+import { createRtcToken, createRtmToken } from "./tokens";
 
 const textEncoder = new TextEncoder();
 
@@ -134,6 +138,7 @@ export const createMobileViewerLink = async ({
 	sourceLanguages,
 	targetLanguages,
 	subtitleRenderMode,
+	subtitleMessageFormat,
 	brandName,
 	brandLogoUrl,
 }: MobileViewerLinkRequest & {
@@ -167,6 +172,7 @@ export const createMobileViewerLink = async ({
 			sourceLanguages,
 			targetLanguages,
 			subtitleRenderMode,
+			subtitleMessageFormat,
 			brandName,
 			brandLogoUrl: safeBrandLogoUrl,
 		},
@@ -215,9 +221,44 @@ export const createMobileViewerSession = async ({
 		sourceLanguages: payload.sourceLanguages,
 		targetLanguages: payload.targetLanguages,
 		subtitleRenderMode: payload.subtitleRenderMode,
+		subtitleMessageFormat: payload.subtitleMessageFormat,
 		brandName: payload.brandName,
 		brandLogoUrl: payload.brandLogoUrl,
 		sessionId: payload.sessionId,
 		expiresAt: payload.exp * 1000,
 	};
+};
+
+export const createMobileViewerRtmToken = async ({
+	now = Math.floor(Date.now() / 1000),
+	viewerToken,
+	userId,
+	createToken = createRtmToken,
+}: {
+	now?: number;
+	viewerToken: string;
+	userId: string;
+	createToken?: (input: { userId: string }) => RtmTokenResponse;
+}): Promise<RtmTokenResponse> => {
+	const { tokenSecret } = getMobileViewerServerConfig();
+	const payload = verifyMobileViewerToken({
+		now,
+		secret: tokenSecret,
+		token: viewerToken,
+	});
+
+	if (!payload) {
+		throw new Error("链接无效或已过期");
+	}
+
+	const status = await getSttSessionStatus(payload.agentId);
+	if (!isActiveSttStatus(status.status)) {
+		throw new Error("房间字幕已结束");
+	}
+
+	if (!userId) {
+		throw new Error("Invalid request: userId is required");
+	}
+
+	return createToken({ userId });
 };

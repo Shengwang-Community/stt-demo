@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getServerAuthSessionSecret } from "#/lib/auth/runtime";
 import { ERROR_CODES } from "#/lib/i18n";
 import {
 	buildSsoTokenClearCookieHeader,
-	getServerSsoSessionSecret,
 	getSsoTokenCookieFromRequest,
 } from "#/lib/sso";
 import { verifyAppSessionJwt } from "#/lib/sso/session";
@@ -24,14 +24,14 @@ export const Route = createFileRoute("/api/sso/userInfo")({
 					);
 				}
 
-				const sessionSecret = getServerSsoSessionSecret(process.env);
+				const sessionSecret = getServerAuthSessionSecret(process.env);
 
 				if (!sessionSecret) {
 					return Response.json(
 						{
 							code: 1,
 							errorCode: ERROR_CODES.SESSION_MISSING,
-							msg: "SSO session is unavailable",
+							msg: "AUTH_SESSION_SECRET is not configured",
 						},
 						{
 							status: 401,

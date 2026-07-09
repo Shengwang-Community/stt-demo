@@ -1,5 +1,6 @@
 export const ERROR_CODES = {
 	INVALID_LOCALE: "invalid_locale",
+	AUTH_CONFIG_INCOMPLETE: "auth_config_incomplete",
 	SESSION_MISSING: "session_missing",
 	SESSION_EXPIRED: "session_expired",
 	VIEWER_LINK_INVALID: "viewer_link_invalid",

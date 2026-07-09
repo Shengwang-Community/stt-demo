@@ -23,6 +23,8 @@ export type CaptionStorageConfig = {
 	sliceDuration: number;
 };
 
+export type SttVendorAsrParamsConfig = Record<string, Record<string, unknown>>;
+
 export type AgoraServerConfig = {
 	appId: string;
 	appCertificate: string;
@@ -34,6 +36,7 @@ export type AgoraServerConfig = {
 	sttKeywords: string[];
 	sttGraphId?: string;
 	sttForceTranslateIntervalSeconds: number;
+	sttVendorAsrParams: SttVendorAsrParamsConfig;
 	subBotUid: string;
 	pubBotUid: string;
 	maxIdleTimeSeconds: number;
@@ -456,6 +459,38 @@ const getOptionalCaptionStorageConfig = (
 	return getCaptionStorageConfig(env);
 };
 
+const parseSttVendorAsrParams = (
+	value: string | undefined,
+): SttVendorAsrParamsConfig => {
+	const trimmed = value?.trim() ?? "";
+	if (!trimmed) {
+		return {};
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(trimmed);
+	} catch {
+		throw new Error("AGORA_STT_VENDOR_ASR_PARAMS_JSON must be valid JSON");
+	}
+
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		throw new Error("AGORA_STT_VENDOR_ASR_PARAMS_JSON must be a JSON object");
+	}
+
+	const paramsByVendor: SttVendorAsrParamsConfig = {};
+	for (const [vendor, params] of Object.entries(parsed)) {
+		if (!params || typeof params !== "object" || Array.isArray(params)) {
+			throw new Error(
+				"AGORA_STT_VENDOR_ASR_PARAMS_JSON values must be JSON objects",
+			);
+		}
+		paramsByVendor[vendor] = params as Record<string, unknown>;
+	}
+
+	return paramsByVendor;
+};
+
 export const getRtcAgoraTokenConfig = (env: EnvLike = process.env) =>
 	resolveRtcAgoraConfig(env);
 
@@ -485,6 +520,9 @@ export const getAgoraServerConfig = (
 		sttForceTranslateIntervalSeconds: parseNumber(
 			env.AGORA_STT_FORCE_TRANSLATE_INTERVAL_SECONDS,
 			2,
+		),
+		sttVendorAsrParams: parseSttVendorAsrParams(
+			env.AGORA_STT_VENDOR_ASR_PARAMS_JSON,
 		),
 		subBotUid: assertNumberString(
 			env.AGORA_STT_SUB_BOT_UID ?? "1000",

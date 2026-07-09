@@ -19,7 +19,10 @@ import { Route as ApiSsoCallbackRouteImport } from './routes/api/sso/callback'
 import { Route as ApiRtmTokenRouteImport } from './routes/api/rtm/token'
 import { Route as ApiRtcTokenRouteImport } from './routes/api/rtc/token'
 import { Route as ApiMobileViewerSessionRouteImport } from './routes/api/mobile-viewer/session'
+import { Route as ApiMobileViewerRtmTokenRouteImport } from './routes/api/mobile-viewer/rtm-token'
 import { Route as ApiMobileViewerLinkRouteImport } from './routes/api/mobile-viewer/link'
+import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
+import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
 import { Route as ApiSttGroupSessionVttRouteImport } from './routes/api/stt-group/session/vtt'
 import { Route as ApiSttGroupSessionStopRouteImport } from './routes/api/stt-group/session/stop'
 import { Route as ApiSttGroupSessionStatusRouteImport } from './routes/api/stt-group/session/status'
@@ -75,9 +78,24 @@ const ApiMobileViewerSessionRoute = ApiMobileViewerSessionRouteImport.update({
   path: '/api/mobile-viewer/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMobileViewerRtmTokenRoute = ApiMobileViewerRtmTokenRouteImport.update({
+  id: '/api/mobile-viewer/rtm-token',
+  path: '/api/mobile-viewer/rtm-token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMobileViewerLinkRoute = ApiMobileViewerLinkRouteImport.update({
   id: '/api/mobile-viewer/link',
   path: '/api/mobile-viewer/link',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
+  id: '/api/auth/session',
+  path: '/api/auth/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
+  id: '/api/auth/logout',
+  path: '/api/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSttGroupSessionVttRoute = ApiSttGroupSessionVttRouteImport.update({
@@ -106,7 +124,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/mobile': typeof MobileRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/mobile-viewer/link': typeof ApiMobileViewerLinkRoute
+  '/api/mobile-viewer/rtm-token': typeof ApiMobileViewerRtmTokenRoute
   '/api/mobile-viewer/session': typeof ApiMobileViewerSessionRoute
   '/api/rtc/token': typeof ApiRtcTokenRoute
   '/api/rtm/token': typeof ApiRtmTokenRoute
@@ -123,7 +144,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/mobile': typeof MobileRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/mobile-viewer/link': typeof ApiMobileViewerLinkRoute
+  '/api/mobile-viewer/rtm-token': typeof ApiMobileViewerRtmTokenRoute
   '/api/mobile-viewer/session': typeof ApiMobileViewerSessionRoute
   '/api/rtc/token': typeof ApiRtcTokenRoute
   '/api/rtm/token': typeof ApiRtmTokenRoute
@@ -141,7 +165,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/mobile': typeof MobileRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/mobile-viewer/link': typeof ApiMobileViewerLinkRoute
+  '/api/mobile-viewer/rtm-token': typeof ApiMobileViewerRtmTokenRoute
   '/api/mobile-viewer/session': typeof ApiMobileViewerSessionRoute
   '/api/rtc/token': typeof ApiRtcTokenRoute
   '/api/rtm/token': typeof ApiRtmTokenRoute
@@ -160,7 +187,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/mobile'
+    | '/api/auth/logout'
+    | '/api/auth/session'
     | '/api/mobile-viewer/link'
+    | '/api/mobile-viewer/rtm-token'
     | '/api/mobile-viewer/session'
     | '/api/rtc/token'
     | '/api/rtm/token'
@@ -177,7 +207,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/mobile'
+    | '/api/auth/logout'
+    | '/api/auth/session'
     | '/api/mobile-viewer/link'
+    | '/api/mobile-viewer/rtm-token'
     | '/api/mobile-viewer/session'
     | '/api/rtc/token'
     | '/api/rtm/token'
@@ -194,7 +227,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/mobile'
+    | '/api/auth/logout'
+    | '/api/auth/session'
     | '/api/mobile-viewer/link'
+    | '/api/mobile-viewer/rtm-token'
     | '/api/mobile-viewer/session'
     | '/api/rtc/token'
     | '/api/rtm/token'
@@ -212,7 +248,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
   MobileRoute: typeof MobileRoute
+  ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
+  ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiMobileViewerLinkRoute: typeof ApiMobileViewerLinkRoute
+  ApiMobileViewerRtmTokenRoute: typeof ApiMobileViewerRtmTokenRoute
   ApiMobileViewerSessionRoute: typeof ApiMobileViewerSessionRoute
   ApiRtcTokenRoute: typeof ApiRtcTokenRoute
   ApiRtmTokenRoute: typeof ApiRtmTokenRoute
@@ -298,11 +337,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMobileViewerSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mobile-viewer/rtm-token': {
+      id: '/api/mobile-viewer/rtm-token'
+      path: '/api/mobile-viewer/rtm-token'
+      fullPath: '/api/mobile-viewer/rtm-token'
+      preLoaderRoute: typeof ApiMobileViewerRtmTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mobile-viewer/link': {
       id: '/api/mobile-viewer/link'
       path: '/api/mobile-viewer/link'
       fullPath: '/api/mobile-viewer/link'
       preLoaderRoute: typeof ApiMobileViewerLinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/session': {
+      id: '/api/auth/session'
+      path: '/api/auth/session'
+      fullPath: '/api/auth/session'
+      preLoaderRoute: typeof ApiAuthSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/logout': {
+      id: '/api/auth/logout'
+      path: '/api/auth/logout'
+      fullPath: '/api/auth/logout'
+      preLoaderRoute: typeof ApiAuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stt-group/session/vtt': {
@@ -340,7 +400,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   MobileRoute: MobileRoute,
+  ApiAuthLogoutRoute: ApiAuthLogoutRoute,
+  ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiMobileViewerLinkRoute: ApiMobileViewerLinkRoute,
+  ApiMobileViewerRtmTokenRoute: ApiMobileViewerRtmTokenRoute,
   ApiMobileViewerSessionRoute: ApiMobileViewerSessionRoute,
   ApiRtcTokenRoute: ApiRtcTokenRoute,
   ApiRtmTokenRoute: ApiRtmTokenRoute,

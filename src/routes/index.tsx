@@ -2,34 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { AccessOverlays } from "#/components/stt-group/access-overlays";
 import { LandingPage } from "#/components/stt-group/landing-page";
-import { fetchSsoUserInfo, redirectToSsoLogin, redirectToSsoLogout } from "#/lib/sso";
 import {
+	type AppIdentity,
+	fetchAuthSession,
+	redirectToAuthLogout,
+} from "#/lib/auth";
+import { redirectToSsoLogin } from "#/lib/sso";
+import {
+	type BrandSettings,
 	createBrandSettings,
 	DEFAULT_BRAND_SETTINGS,
-	readBrandSettings,
 	isSupportedLogoFile,
-	type BrandSettings,
+	readBrandSettings,
 	writeBrandSettings,
 } from "#/lib/stt-group";
 
 export const Route = createFileRoute("/")({ component: Home });
-
-type UserInfo = Record<string, unknown>;
-
-const getDisplayName = (userInfo: UserInfo | null) => {
-	if (!userInfo) {
-		return "";
-	}
-
-	for (const key of ["displayName", "nickname", "email", "accountUid"]) {
-		const value = userInfo[key];
-		if (typeof value === "string" && value.length > 0) {
-			return value;
-		}
-	}
-
-	return "Authenticated user";
-};
 
 const getAvatarLabel = (displayName: string) => {
 	const trimmed = displayName.trim();
@@ -43,13 +31,15 @@ const getAvatarLabel = (displayName: string) => {
 };
 
 function Home() {
-	const [userInfo, setUserInfo] = React.useState<UserInfo | null>(null);
+	const [identity, setIdentity] = React.useState<AppIdentity | null>(null);
 	const [brandSettings, setBrandSettings] = React.useState<BrandSettings>(
 		DEFAULT_BRAND_SETTINGS,
 	);
 	const [draftBrandSettings, setDraftBrandSettings] =
 		React.useState<BrandSettings>(DEFAULT_BRAND_SETTINGS);
-	const [pendingLogoFile, setPendingLogoFile] = React.useState<File | null>(null);
+	const [pendingLogoFile, setPendingLogoFile] = React.useState<File | null>(
+		null,
+	);
 	const [activeOverlay, setActiveOverlay] = React.useState<
 		"plugin" | "skin-settings" | null
 	>(null);
@@ -78,14 +68,14 @@ function Home() {
 
 		const loadSession = async () => {
 			try {
-				const response = await fetchSsoUserInfo();
+				const response = await fetchAuthSession();
 
 				if (isMounted) {
-					setUserInfo((response?.data as UserInfo | undefined) ?? null);
+					setIdentity(response?.data ?? null);
 				}
 			} catch {
 				if (isMounted) {
-					setUserInfo(null);
+					setIdentity(null);
 				}
 			}
 		};
@@ -97,20 +87,29 @@ function Home() {
 		};
 	}, []);
 
-	const handleLogin = () => {
-		redirectToSsoLogin();
-	};
-
-	const handlePrimaryAction = () => {
-		if (userInfo) {
-			window.location.href = "/app";
-			return;
+	const handleLogin = async () => {
+		try {
+			const response = await fetchAuthSession();
+			if (response?.data.authMode === "guest") {
+				window.location.href = "/app";
+				return;
+			}
+		} catch {
+			// Fall through to the SSO login route for SSO-mode unauthenticated users.
 		}
 		redirectToSsoLogin();
 	};
 
+	const handlePrimaryAction = () => {
+		if (identity) {
+			window.location.href = "/app";
+			return;
+		}
+		void handleLogin();
+	};
+
 	const handleLogout = () => {
-		redirectToSsoLogout();
+		redirectToAuthLogout();
 	};
 
 	const handleOpenSkinSettings = () => {
@@ -166,8 +165,8 @@ function Home() {
 				onOpenSkinSettings={handleOpenSkinSettings}
 				brandName={brandSettings.productName}
 				brandLogoUrl={brandSettings.logoAsset?.dataUrl ?? null}
-				loggedIn={Boolean(userInfo)}
-				avatarLabel={getAvatarLabel(getDisplayName(userInfo))}
+				loggedIn={Boolean(identity)}
+				avatarLabel={getAvatarLabel(identity?.displayName ?? "")}
 			/>
 			<AccessOverlays
 				channelName=""

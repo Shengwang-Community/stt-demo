@@ -9,14 +9,11 @@ import {
 	type SttRoomMember,
 	type SubtitleLine,
 } from "#/lib/stt-group";
-import {
-	ApiError,
-	requestMobileViewerSession,
-	requestRtmToken,
-} from "#/lib/stt-group/client/api";
-import { installSubtitleDebugConsoleApi } from "#/lib/stt-group/client/subtitle-debug";
+import { ApiError } from "#/lib/stt-group/client/api";
 import type { GroupRtcSession } from "#/lib/stt-group/client/rtc-client";
 import type { MobileViewerRtmSession } from "#/lib/stt-group/client/rtm-client";
+import { installSubtitleDebugConsoleApi } from "#/lib/stt-group/client/subtitle-debug";
+import { connectMobileViewer } from "./-mobile-viewer-connection";
 
 installSubtitleDebugConsoleApi();
 
@@ -37,6 +34,8 @@ function MobileRoute() {
 	const [displayMode, setDisplayMode] = React.useState<
 		"both" | "source" | "target"
 	>("both");
+	const [activeTargetLanguage, setActiveTargetLanguage] =
+		React.useState("en-US");
 	const [session, setSession] =
 		React.useState<MobileViewerSessionResponse | null>(null);
 	const [lines, setLines] = React.useState<SubtitleLine[]>([]);
@@ -64,31 +63,9 @@ function MobileRoute() {
 			try {
 				setState("connecting");
 				setErrorMessage(undefined);
-				const sessionResponse = await requestMobileViewerSession({
+				const connection = await connectMobileViewer({
 					viewerToken,
-				});
-				if (cancelled) {
-					return;
-				}
-
-				setSession(sessionResponse);
-				const { joinGroupRtcSession } = await import(
-					"#/lib/stt-group/client/rtc-client"
-				);
-				const { joinMobileViewerRtmSession } = await import(
-					"#/lib/stt-group/client/rtm-client"
-				);
-				const rtmToken = await requestRtmToken({
-					userId: sessionResponse.uid,
-				});
-				const rtcSession = await joinGroupRtcSession({
-					appId: sessionResponse.appId,
-					channelName: sessionResponse.channelName,
-					uid: Number(sessionResponse.uid),
-					token: sessionResponse.token,
-					pubBotUid: sessionResponse.pubBotUid,
-					mode: "viewer",
-					onSubtitle: (message) => {
+					onSubtitle: (message, sessionResponse) => {
 						setLines((current) =>
 							reduceSubtitleMessage(
 								current,
@@ -98,23 +75,17 @@ function MobileRoute() {
 							),
 						);
 					},
-				});
-				const rtmSession = await joinMobileViewerRtmSession({
-					appId: rtmToken.appId,
-					userId: rtmToken.userId,
-					token: rtmToken.token,
-					channelName: sessionResponse.channelName,
 					onMembers: setMembers,
 				});
-
 				if (cancelled) {
-					await rtcSession.leave().catch(() => undefined);
-					await rtmSession.leave().catch(() => undefined);
+					await connection.rtcSession.leave().catch(() => undefined);
+					await connection.rtmSession?.leave().catch(() => undefined);
 					return;
 				}
 
-				rtcSessionRef.current = rtcSession;
-				rtmSessionRef.current = rtmSession;
+				setSession(connection.sessionResponse);
+				rtcSessionRef.current = connection.rtcSession;
+				rtmSessionRef.current = connection.rtmSession;
 				setState("live");
 			} catch (error) {
 				const message =
@@ -160,6 +131,17 @@ function MobileRoute() {
 		};
 	}, [viewerToken, t]);
 
+	React.useEffect(() => {
+		const targetLanguages = session?.targetLanguages ?? [];
+		if (targetLanguages.length === 0) {
+			return;
+		}
+		if (targetLanguages.includes(activeTargetLanguage)) {
+			return;
+		}
+		setActiveTargetLanguage(targetLanguages[0] ?? activeTargetLanguage);
+	}, [activeTargetLanguage, session?.targetLanguages]);
+
 	return (
 		<MobileViewer
 			state={state}
@@ -174,6 +156,8 @@ function MobileRoute() {
 			members={members}
 			displayMode={displayMode}
 			onDisplayModeChange={setDisplayMode}
+			activeTargetLanguage={activeTargetLanguage}
+			onActiveTargetLanguageChange={setActiveTargetLanguage}
 		/>
 	);
 }

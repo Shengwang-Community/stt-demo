@@ -124,6 +124,28 @@ const logSttJoinRequest = ({
 	);
 };
 
+const buildSttExtensionParams = ({
+	sttVendor,
+	sttVendorAsrParams,
+}: {
+	sttVendor: SttSessionStartRequest["sttVendor"];
+	sttVendorAsrParams: AgoraServerConfig["sttVendorAsrParams"];
+}) => {
+	if (!sttVendor) {
+		return undefined;
+	}
+
+	const params = sttVendorAsrParams[sttVendor];
+	return {
+		enable_dump: true,
+		dump_level: "full",
+		asr: {
+			vendor: sttVendor,
+			...(params ? { params } : {}),
+		},
+	};
+};
+
 export const startSttSession = async (
 	request: SttSessionStartRequest,
 	config: AgoraServerConfig = getAgoraServerConfig(),
@@ -145,6 +167,10 @@ export const startSttSession = async (
 
 	const sessionId = createSessionId();
 	const { subBotUid, pubBotUid } = config;
+	const extensionParams = buildSttExtensionParams({
+		sttVendor: request.sttVendor,
+		sttVendorAsrParams: config.sttVendorAsrParams,
+	});
 	const botTokenConfig = config.usesDynamicToken
 		? {
 				subBotToken: createRtcToken({
@@ -166,17 +192,7 @@ export const startSttSession = async (
 		name: `stt-group-${sessionId}`,
 		maxIdleTime: config.maxIdleTimeSeconds,
 		...(config.sttGraphId ? { graph_id: config.sttGraphId } : {}),
-		...(request.sttVendor
-			? {
-					extensionParams: {
-						enable_dump: true,
-						dump_level: "full",
-						asr: {
-							vendor: request.sttVendor,
-						},
-					},
-				}
-			: {}),
+		...(extensionParams ? { extensionParams } : {}),
 		...(config.captionStorage
 			? {
 					captionConfig: {

@@ -42,7 +42,7 @@ export const createAppSessionJwt = ({
 	userInfo: unknown;
 }) => {
 	if (!secret) {
-		throw new Error("SSO_SESSION_SECRET is not configured");
+		throw new Error("AUTH_SESSION_SECRET is not configured");
 	}
 
 	const header = base64UrlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
@@ -67,7 +67,7 @@ export const verifyAppSessionJwt = ({
 	token: string;
 }): AppSessionPayload | null => {
 	if (!secret) {
-		throw new Error("SSO_SESSION_SECRET is not configured");
+		throw new Error("AUTH_SESSION_SECRET is not configured");
 	}
 
 	const parts = token.split(".");

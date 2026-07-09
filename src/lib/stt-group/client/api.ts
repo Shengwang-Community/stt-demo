@@ -1,8 +1,4 @@
 import type {
-	MobileViewerLinkRequest,
-	MobileViewerLinkResponse,
-	MobileViewerSessionRequest,
-	MobileViewerSessionResponse,
 	RtcTokenRequest,
 	RtcTokenResponse,
 	RtmTokenResponse,
@@ -10,6 +6,13 @@ import type {
 	SttSessionStartResponse,
 	SttSessionStopRequest,
 } from "../domain";
+import type {
+	MobileViewerLinkRequest,
+	MobileViewerLinkResponse,
+	MobileViewerRtmTokenRequest,
+	MobileViewerSessionRequest,
+	MobileViewerSessionResponse,
+} from "../mobile-viewer";
 
 export class ApiError extends Error {
 	errorCode?: string;
@@ -265,3 +268,7 @@ export const requestMobileViewerLink = (body: MobileViewerLinkRequest) =>
 
 export const requestMobileViewerSession = (body: MobileViewerSessionRequest) =>
 	postJson<MobileViewerSessionResponse>("/api/mobile-viewer/session", body);
+
+export const requestMobileViewerRtmToken = (
+	body: MobileViewerRtmTokenRequest,
+) => postJson<RtmTokenResponse>("/api/mobile-viewer/rtm-token", body);

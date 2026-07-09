@@ -14,11 +14,15 @@ import {
 	SubtitleStage,
 } from "#/components/stt-group/subtitle-stage";
 import {
+	type AppIdentity,
+	fetchAuthSession,
+	redirectToAuthLogout,
+} from "#/lib/auth";
+import {
 	DeveloperModeProvider,
 	useDeveloperMode,
 } from "#/lib/developer-mode/store";
 import { useLocale, useT } from "#/lib/i18n";
-import { fetchSsoUserInfo, redirectToSsoLogout } from "#/lib/sso";
 import type { SubtitleLine } from "#/lib/stt-group";
 import {
 	type BrandSettings,
@@ -69,8 +73,6 @@ import {
 installSubtitleDebugConsoleApi();
 
 export const Route = createFileRoute("/app")({ component: AppRoute });
-
-type UserInfo = Record<string, unknown>;
 
 type PrestartFormCheckMessages = {
 	invalidChannelName: string;
@@ -208,30 +210,15 @@ export const resolvePrestartRoomAction = ({
 	return { kind: "reuse" };
 };
 
-const getDisplayName = (userInfo: UserInfo | null) => {
-	if (!userInfo) {
-		return "";
-	}
-
-	for (const key of ["displayName", "nickname", "email", "accountUid"]) {
-		const value = userInfo[key];
-		if (typeof value === "string" && value.length > 0) {
-			return value;
-		}
-	}
-
-	return "";
-};
-
 const getDefaultNickname = (
-	userInfo: UserInfo | null,
+	displayName: string,
 	defaultDemoNickname: string,
 ) => {
-	const displayName = getDisplayName(userInfo).trim();
-	if (/^用户[0-9a-z]+$/i.test(displayName)) {
+	const trimmed = displayName.trim();
+	if (/^用户[0-9a-z]+$/i.test(trimmed)) {
 		return defaultDemoNickname;
 	}
-	return displayName;
+	return trimmed;
 };
 
 const normalizeDeviceLabel = ({
@@ -278,18 +265,111 @@ const getAvatarDisplayText = (displayName: string) => {
 	return trimmed.slice(0, 1);
 };
 
-export const shouldSyncNicknameWithDefault = ({
-	nickname,
-	lastAutoNickname,
-}: {
-	nickname: string;
-	lastAutoNickname: string | null;
-}) =>
-	nickname.length === 0 && lastAutoNickname === null
-		? true
-		: lastAutoNickname !== null && nickname === lastAutoNickname;
-
 const PRESTART_NICKNAME_STORAGE_KEY = "stt-demo.prestart-nickname";
+
+type PrestartNicknameCache = {
+	version: 1;
+	identityKey: string;
+	value: string;
+	userEdited: boolean;
+};
+
+type ParsedPrestartNicknameCache =
+	| PrestartNicknameCache
+	| {
+			version: 0;
+			identityKey: null;
+			value: string;
+			userEdited: true;
+	  };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null;
+
+export const buildIdentityKey = (identity: AppIdentity) =>
+	`${identity.authMode}:${identity.userId}`;
+
+export const isGuestDefaultNickname = (value: string) =>
+	/^体验用户\s+[A-F0-9]{4}$/.test(value.trim());
+
+export const parsePrestartNicknameCache = (
+	rawValue: string | null,
+): ParsedPrestartNicknameCache | null => {
+	if (rawValue === null) {
+		return null;
+	}
+
+	try {
+		const parsed = JSON.parse(rawValue) as unknown;
+		if (
+			isRecord(parsed) &&
+			parsed.version === 1 &&
+			typeof parsed.identityKey === "string" &&
+			typeof parsed.value === "string" &&
+			typeof parsed.userEdited === "boolean"
+		) {
+			return {
+				version: 1,
+				identityKey: parsed.identityKey,
+				value: parsed.value,
+				userEdited: parsed.userEdited,
+			};
+		}
+	} catch {
+		// Older versions stored the nickname directly as a plain string.
+	}
+
+	return {
+		version: 0,
+		identityKey: null,
+		value: rawValue,
+		userEdited: true,
+	};
+};
+
+export const resolvePrestartNicknameState = ({
+	cache,
+	defaultNickname,
+	identityKey,
+}: {
+	cache: ParsedPrestartNicknameCache | null;
+	defaultNickname: string;
+	identityKey: string;
+}): PrestartNicknameCache => {
+	if (!cache) {
+		return {
+			version: 1,
+			identityKey,
+			value: defaultNickname,
+			userEdited: false,
+		};
+	}
+
+	if (cache.identityKey === identityKey) {
+		return {
+			version: 1,
+			identityKey,
+			value: cache.userEdited ? cache.value : defaultNickname,
+			userEdited: cache.userEdited,
+		};
+	}
+
+	if (cache.identityKey === null && !isGuestDefaultNickname(cache.value)) {
+		return {
+			version: 1,
+			identityKey,
+			value: cache.value,
+			userEdited: true,
+		};
+	}
+
+	return {
+		version: 1,
+		identityKey,
+		value: defaultNickname,
+		userEdited: false,
+	};
+};
 
 const formatTime = (value: number, locale: string) =>
 	new Intl.DateTimeFormat(locale, {
@@ -394,7 +474,7 @@ function AppRouteScreen() {
 	const { locale } = useLocale();
 	const { state: developerMode, unlock } = useDeveloperMode();
 	const demoNickname = t("branding.demoNickname");
-	const [userInfo, setUserInfo] = React.useState<UserInfo | null>(null);
+	const [identity, setIdentity] = React.useState<AppIdentity | null>(null);
 	const [authLoading, setAuthLoading] = React.useState(true);
 	const [roomJoined, setRoomJoined] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
@@ -404,6 +484,12 @@ function AppRouteScreen() {
 		"create",
 	);
 	const [nickname, setNickname] = React.useState("");
+	const [nicknameIdentityKey, setNicknameIdentityKey] = React.useState<
+		string | null
+	>(null);
+	const [nicknameUserEdited, setNicknameUserEdited] = React.useState(false);
+	const [nicknameCacheHydrated, setNicknameCacheHydrated] =
+		React.useState(false);
 	const [recognitionMode, setRecognitionMode] =
 		React.useState<RecognitionMode>("single");
 	const [prestartRecognitionMode, setPrestartRecognitionMode] =
@@ -467,7 +553,8 @@ function AppRouteScreen() {
 	const [developerModeOpen, setDeveloperModeOpen] = React.useState(false);
 	const [, setClockTick] = React.useState(Date.now());
 	const uidRef = React.useRef(createHumanUid());
-	const lastAutoNicknameRef = React.useRef<string | null>(null);
+	const prestartNicknameCacheRef =
+		React.useRef<ParsedPrestartNicknameCache | null>(null);
 	const rtcSessionRef = React.useRef<GroupRtcSession | null>(null);
 	const rtmSessionRef = React.useRef<GroupRtmSession | null>(null);
 	const localCameraPreviewRef = React.useRef<LocalCameraPreviewSession | null>(
@@ -539,13 +626,13 @@ function AppRouteScreen() {
 
 		const loadUser = async () => {
 			try {
-				const response = await fetchSsoUserInfo();
+				const response = await fetchAuthSession();
 				if (isMounted) {
-					setUserInfo((response?.data as UserInfo | undefined) ?? null);
+					setIdentity(response?.data ?? null);
 				}
 			} catch {
 				if (isMounted) {
-					setUserInfo(null);
+					setIdentity(null);
 				}
 			} finally {
 				if (isMounted) {
@@ -562,12 +649,12 @@ function AppRouteScreen() {
 	}, []);
 
 	React.useEffect(() => {
-		if (authLoading || userInfo) {
+		if (authLoading || identity) {
 			return;
 		}
 
 		window.location.replace("/");
-	}, [authLoading, userInfo]);
+	}, [authLoading, identity]);
 
 	React.useEffect(() => {
 		setBrandSettings(readBrandSettings());
@@ -596,22 +683,38 @@ function AppRouteScreen() {
 			return;
 		}
 
-		const cachedNickname = window.localStorage.getItem(
-			PRESTART_NICKNAME_STORAGE_KEY,
+		prestartNicknameCacheRef.current = parsePrestartNicknameCache(
+			window.localStorage.getItem(PRESTART_NICKNAME_STORAGE_KEY),
 		);
-		if (cachedNickname !== null) {
-			setNickname(cachedNickname);
-			lastAutoNicknameRef.current = null;
-		}
+		setNicknameCacheHydrated(true);
 	}, []);
 
 	React.useEffect(() => {
-		if (typeof window === "undefined") {
+		if (
+			typeof window === "undefined" ||
+			!nicknameCacheHydrated ||
+			!nicknameIdentityKey
+		) {
 			return;
 		}
 
-		window.localStorage.setItem(PRESTART_NICKNAME_STORAGE_KEY, nickname);
-	}, [nickname]);
+		const nextCache: PrestartNicknameCache = {
+			version: 1,
+			identityKey: nicknameIdentityKey,
+			value: nickname,
+			userEdited: nicknameUserEdited,
+		};
+		prestartNicknameCacheRef.current = nextCache;
+		window.localStorage.setItem(
+			PRESTART_NICKNAME_STORAGE_KEY,
+			JSON.stringify(nextCache),
+		);
+	}, [
+		nickname,
+		nicknameCacheHydrated,
+		nicknameIdentityKey,
+		nicknameUserEdited,
+	]);
 
 	React.useEffect(() => {
 		writeBrandSettings(createBrandSettings(brandSettings));
@@ -719,6 +822,7 @@ function AppRouteScreen() {
 					sourceLanguages,
 					targetLanguages,
 					subtitleRenderMode: developerMode.subtitleRenderMode,
+					subtitleMessageFormat: developerMode.subtitleMessageFormat,
 					brandName: brandSettings.productName,
 					brandLogoUrl: brandSettings.logoAsset?.dataUrl ?? null,
 				});
@@ -749,6 +853,7 @@ function AppRouteScreen() {
 	}, [
 		activeOverlay,
 		channelName,
+		developerMode.subtitleMessageFormat,
 		developerMode.subtitleRenderMode,
 		roomJoined,
 		metadata.status,
@@ -802,24 +907,33 @@ function AppRouteScreen() {
 		};
 	}, [metadata.closeReason, metadata.status, roomJoined, t]);
 
-	const displayName = getDisplayName(userInfo);
+	const displayName = identity?.displayName ?? "";
 	const effectiveDisplayName = nickname.trim() || displayName;
 
 	React.useEffect(() => {
-		if (!userInfo) {
+		if (!identity || !nicknameCacheHydrated) {
 			return;
 		}
-		const nextDefaultNickname = getDefaultNickname(userInfo, demoNickname);
-		if (
-			shouldSyncNicknameWithDefault({
-				nickname,
-				lastAutoNickname: lastAutoNicknameRef.current,
-			})
-		) {
-			setNickname(nextDefaultNickname);
-			lastAutoNicknameRef.current = nextDefaultNickname;
-		}
-	}, [demoNickname, nickname, userInfo]);
+		const identityKey = buildIdentityKey(identity);
+		const nextDefaultNickname = getDefaultNickname(
+			identity.displayName,
+			demoNickname,
+		);
+		const nextState = resolvePrestartNicknameState({
+			cache: prestartNicknameCacheRef.current,
+			defaultNickname: nextDefaultNickname,
+			identityKey,
+		});
+		prestartNicknameCacheRef.current = nextState;
+		setNickname(nextState.value);
+		setNicknameIdentityKey(nextState.identityKey);
+		setNicknameUserEdited(nextState.userEdited);
+	}, [demoNickname, identity, nicknameCacheHydrated]);
+
+	const handleNicknameChange = React.useCallback((value: string) => {
+		setNickname(value);
+		setNicknameUserEdited(true);
+	}, []);
 
 	const isController = metadata.controllerUserId === uidRef.current;
 	const shouldStopBeforeLeaving =
@@ -910,7 +1024,7 @@ function AppRouteScreen() {
 	};
 
 	const handleJoinRoom = async () => {
-		if (!userInfo) {
+		if (!identity) {
 			setError(t("errors.loginRequired"));
 			return;
 		}
@@ -1221,7 +1335,7 @@ function AppRouteScreen() {
 	}, [isController, metadata, roomJoined, stopSttAsController]);
 
 	const handleLogout = () => {
-		redirectToSsoLogout();
+		redirectToAuthLogout();
 	};
 
 	const handleStopRequest = () => {
@@ -1437,7 +1551,7 @@ function AppRouteScreen() {
 			cameraEnabled={cameraEnabled}
 			microphoneReady={prestartMicrophoneReady}
 			onChannelNameChange={setChannelName}
-			onNicknameChange={setNickname}
+			onNicknameChange={handleNicknameChange}
 			onRecognitionModeChange={handleRecognitionModeChange}
 			onSourceLanguagesChange={handleSourceLanguagesChange}
 			onTargetLanguagesChange={handleTargetLanguagesChange}
@@ -1479,7 +1593,7 @@ function AppRouteScreen() {
 		return <main className="stt-loading-screen" aria-hidden="true" />;
 	}
 
-	if (!userInfo) {
+	if (!identity) {
 		return <main className="stt-loading-screen" aria-hidden="true" />;
 	}
 
