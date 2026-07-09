@@ -30,7 +30,10 @@ export const Route = createFileRoute("/api/sso/logout")({
 					headers: {
 						Location: buildLogoutUrl({
 							baseUrl,
-							redirectUri: getServerSsoPostLogoutRedirectUri(request.url),
+							redirectUri: getServerSsoPostLogoutRedirectUri(
+								request.url,
+								process.env,
+							),
 						}),
 						"Set-Cookie": clearCookie,
 					},

@@ -8,7 +8,8 @@ export const API_SSO_LOGIN = "/api/sso/login";
 export const API_SSO_CALLBACK = "/api/sso/callback";
 export const API_SSO_LOGOUT = "/api/sso/logout";
 export const API_SSO_USER_INFO = "/api/sso/userInfo";
-export const SSO_COMPANY_ID_WHITELIST_ENABLED = "SSO_COMPANY_ID_WHITELIST_ENABLED";
+export const SSO_COMPANY_ID_WHITELIST_ENABLED =
+	"SSO_COMPANY_ID_WHITELIST_ENABLED";
 export const SSO_COMPANY_ID_WHITELIST = "SSO_COMPANY_ID_WHITELIST";
 
 export const REMOTE_SSO_AUTHORIZE = "/api/v0/oauth/authorize";
@@ -101,13 +102,12 @@ export const getServerSsoClientId = (env: EnvLike = process.env) =>
 export const getServerSsoClientSecret = (env: EnvLike = process.env) =>
 	env.SSO_CLIENT_SECRET ?? "";
 
-export const getServerSsoSessionSecret = (env: EnvLike = process.env) =>
-	env.SSO_SESSION_SECRET ?? "";
-
 export const getServerSsoCompanyIdWhitelistEnabled = (
 	env: EnvLike = process.env,
 ) => {
-	const value = (env[SSO_COMPANY_ID_WHITELIST_ENABLED] ?? "").trim().toLowerCase();
+	const value = (env[SSO_COMPANY_ID_WHITELIST_ENABLED] ?? "")
+		.trim()
+		.toLowerCase();
 	return value === "1" || value === "true" || value === "yes" || value === "on";
 };
 
@@ -162,8 +162,22 @@ export const buildSsoLoginUrl = ({
 	scope: string;
 }) => buildSsoAuthorizeUrl({ baseUrl, clientId, redirectUri, scope });
 
-export const getServerSsoPostLogoutRedirectUri = (requestUrl: string): string =>
-	`${getRequestOrigin(requestUrl)}/`;
+export const getServerSsoPostLogoutRedirectUri = (
+	requestUrl: string,
+	env: EnvLike = process.env,
+): string => {
+	const configuredRedirectUri = env.VITE_SSO_REDIRECT_URI;
+
+	if (configuredRedirectUri && configuredRedirectUri.length > 0) {
+		try {
+			return `${new URL(configuredRedirectUri).origin}/`;
+		} catch {
+			// Fall back to the request URL when the optional public callback is invalid.
+		}
+	}
+
+	return `${getRequestOrigin(requestUrl)}/`;
+};
 
 export const buildLogoutUrl = ({
 	baseUrl,

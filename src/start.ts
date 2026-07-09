@@ -3,7 +3,7 @@ import {
 	createMiddleware,
 	createStart,
 } from "@tanstack/react-start";
-import { enforceApiSsoAuth } from "#/lib/sso/server-auth";
+import { enforceApiAuth } from "#/lib/auth/server-auth";
 import {
 	getOrCreateRequestId,
 	logInboundEnd,
@@ -44,8 +44,8 @@ const requestLogger = createMiddleware().server(async ({ next, request }) => {
 	}
 });
 
-const apiSsoAuthMiddleware = createMiddleware().server(({ request, next }) => {
-	const unauthorizedResponse = enforceApiSsoAuth(request);
+const apiAuthMiddleware = createMiddleware().server(({ request, next }) => {
+	const unauthorizedResponse = enforceApiAuth(request);
 	if (unauthorizedResponse) {
 		return unauthorizedResponse;
 	}
@@ -54,5 +54,5 @@ const apiSsoAuthMiddleware = createMiddleware().server(({ request, next }) => {
 });
 
 export const startInstance = createStart(() => ({
-	requestMiddleware: [defaultCsrfMiddleware, requestLogger, apiSsoAuthMiddleware],
+	requestMiddleware: [defaultCsrfMiddleware, requestLogger, apiAuthMiddleware],
 }));

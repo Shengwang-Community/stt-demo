@@ -200,6 +200,45 @@
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+.mobile-viewer-target-languages {
+	min-width: 0;
+	margin: -6px 0 0;
+	padding: 0;
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+	border: 0;
+	scrollbar-width: none;
+}
+
+.mobile-viewer-target-languages::-webkit-scrollbar {
+	display: none;
+}
+
+.mobile-viewer-target-languages button {
+	min-height: 32px;
+	max-width: 18ch;
+	padding: 0 11px;
+	flex: 0 0 auto;
+	overflow: hidden;
+	border: 1px solid rgba(210, 225, 250, 0.12);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.035);
+	color: var(--mobile-ink-3);
+	font: inherit;
+	font-size: 11px;
+	font-weight: 650;
+	line-height: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mobile-viewer-target-languages button[aria-pressed="true"] {
+	border-color: rgba(33, 230, 197, 0.45);
+	background: rgba(33, 230, 197, 0.1);
+	color: var(--mobile-ink);
+}
+
 .mobile-viewer-current {
 	position: relative;
 	min-height: 280px;

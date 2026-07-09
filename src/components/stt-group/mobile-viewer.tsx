@@ -30,6 +30,8 @@ export type MobileViewerProps = {
 	members: SttRoomMember[];
 	displayMode: "both" | "source" | "target";
 	onDisplayModeChange: (mode: "both" | "source" | "target") => void;
+	activeTargetLanguage: string;
+	onActiveTargetLanguageChange: (language: string) => void;
 };
 
 export function MobileViewer({
@@ -45,17 +47,30 @@ export function MobileViewer({
 	members,
 	displayMode,
 	onDisplayModeChange,
+	activeTargetLanguage,
+	onActiveTargetLanguageChange,
 }: MobileViewerProps) {
 	const t = useT();
 	const currentLine = projectSubtitleCurrentLine(lines, subtitleRenderMode);
 	const showSource = displayMode === "both" || displayMode === "source";
 	const showTarget = displayMode === "both" || displayMode === "target";
 	const isAlignedMode = subtitleRenderMode === "aligned";
-	const activeTargetLanguage = targetLanguages[0] ?? "";
+	const resolvedActiveTargetLanguage = targetLanguages.includes(
+		activeTargetLanguage,
+	)
+		? activeTargetLanguage
+		: (targetLanguages[0] ?? activeTargetLanguage);
+	const visibleTargetLanguages = resolvedActiveTargetLanguage
+		? [resolvedActiveTargetLanguage]
+		: [];
 	const history = (
 		subtitleRenderMode === "aligned"
 			? projectSubtitleHistoryLines(lines, subtitleRenderMode)
-			: projectAppendHistoryEntries(lines, displayMode, activeTargetLanguage)
+			: projectAppendHistoryEntries(
+					lines,
+					displayMode,
+					resolvedActiveTargetLanguage,
+				)
 	)
 		.slice(-12)
 		.reverse();
@@ -174,6 +189,24 @@ export function MobileViewer({
 					</button>
 				</fieldset>
 
+				{targetLanguages.length > 1 ? (
+					<fieldset
+						className="mobile-viewer-target-languages"
+						aria-label={t("stage.targetLanguage")}
+					>
+						{targetLanguages.map((language) => (
+							<button
+								key={language}
+								type="button"
+								aria-pressed={resolvedActiveTargetLanguage === language}
+								onClick={() => onActiveTargetLanguageChange(language)}
+							>
+								{getLanguageLabel(language)}
+							</button>
+						))}
+					</fieldset>
+				) : null}
+
 				<section className="mobile-viewer-current">
 					{currentLine ? (
 						<p className="mobile-viewer-speaker">
@@ -216,7 +249,7 @@ export function MobileViewer({
 					) : null}
 					{showTarget ? (
 						<div className="mobile-viewer-target">
-							{targetLanguages.map((language) => (
+							{visibleTargetLanguages.map((language) => (
 								<p key={language}>
 									{isAlignedMode &&
 									currentLine?.targetTextFragments?.[language]?.length ? (
@@ -287,7 +320,7 @@ export function MobileViewer({
 							</p>
 						) : null}
 						{showTarget
-							? targetLanguages.map((language) => {
+							? visibleTargetLanguages.map((language) => {
 									const text = line.targetTexts[language];
 									return text ? (
 										<p key={language}>

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getServerAuthSessionSecret } from "#/lib/auth/runtime";
 import { createServerFetch } from "#/lib/server/http-log";
 import {
 	buildSsoTokenSetCookieHeader,
@@ -8,7 +9,6 @@ import {
 	getServerSsoClientId,
 	getServerSsoClientSecret,
 	getServerSsoOpenBaseUrl,
-	getServerSsoSessionSecret,
 	parseRemoteResponse,
 	parseTokenResponse,
 	REMOTE_USER_INFO,
@@ -56,11 +56,11 @@ export const Route = createFileRoute("/api/sso/callback")({
 					);
 				}
 
-				const sessionSecret = getServerSsoSessionSecret(process.env);
+				const sessionSecret = getServerAuthSessionSecret(process.env);
 
 				if (!sessionSecret) {
 					return Response.json(
-						{ code: 1, msg: "SSO_SESSION_SECRET is not configured" },
+						{ code: 1, msg: "AUTH_SESSION_SECRET is not configured" },
 						{ status: 400 },
 					);
 				}
@@ -131,7 +131,10 @@ export const Route = createFileRoute("/api/sso/callback")({
 						secret: sessionSecret,
 						userInfo: userInfo.data ?? userInfoData,
 					});
-					const redirectUrl = new URL("/app", request.url);
+					const redirectUrl = new URL(
+						"/app",
+						getServerSsoCallbackRedirectUri(request.url),
+					);
 
 					return new Response(null, {
 						status: 302,

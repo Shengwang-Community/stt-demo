@@ -1,4 +1,7 @@
-import type { SubtitleRenderMode } from "#/lib/developer-mode/types";
+import type {
+	SubtitleMessageFormat,
+	SubtitleRenderMode,
+} from "#/lib/developer-mode/types";
 import type { LanguageCode } from "./languages";
 
 export type MobileViewerTokenPayload = {
@@ -9,6 +12,7 @@ export type MobileViewerTokenPayload = {
 	sourceLanguages: LanguageCode[];
 	targetLanguages: LanguageCode[];
 	subtitleRenderMode: SubtitleRenderMode;
+	subtitleMessageFormat: SubtitleMessageFormat;
 	brandName?: string;
 	brandLogoUrl?: string | null;
 	iat: number;
@@ -23,6 +27,7 @@ export type MobileViewerLinkRequest = {
 	sourceLanguages: LanguageCode[];
 	targetLanguages: LanguageCode[];
 	subtitleRenderMode: SubtitleRenderMode;
+	subtitleMessageFormat: SubtitleMessageFormat;
 	brandName?: string;
 	brandLogoUrl?: string | null;
 };
@@ -37,6 +42,11 @@ export type MobileViewerSessionRequest = {
 	viewerToken: string;
 };
 
+export type MobileViewerRtmTokenRequest = {
+	viewerToken: string;
+	userId: string;
+};
+
 export type MobileViewerSessionResponse = {
 	appId: string;
 	channelName: string;
@@ -46,6 +56,7 @@ export type MobileViewerSessionResponse = {
 	sourceLanguages: LanguageCode[];
 	targetLanguages: LanguageCode[];
 	subtitleRenderMode: SubtitleRenderMode;
+	subtitleMessageFormat: SubtitleMessageFormat;
 	brandName?: string;
 	brandLogoUrl?: string | null;
 	sessionId: string;

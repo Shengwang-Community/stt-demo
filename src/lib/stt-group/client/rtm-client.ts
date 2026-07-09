@@ -6,6 +6,7 @@ import {
 	AGORA_RTM_ROOM_METADATA_KEY,
 	AGORA_RTM_STT_LOCK_NAME,
 	emptyRoomAdmissionMetadata,
+	emptyRoomMetadata,
 	parseRoomAdmissionMetadata,
 	parseRoomMetadata,
 	type SttRoomAdmissionMetadata,
@@ -121,6 +122,11 @@ const createMetadataItem = ({
 		return revision;
 	},
 });
+
+const hasMetadataKey = (
+	response: { metadata?: Record<string, unknown> } | undefined,
+	key: string,
+) => Boolean(response?.metadata?.[key]);
 
 export const joinGroupRtmSession = async ({
 	appId,
@@ -239,6 +245,39 @@ export const joinGroupRtmSession = async ({
 	await presenceReady;
 	await rtm.unsubscribe(presenceReadyChannelName).catch(() => undefined);
 
+	const existingMetadata = await rtm.storage.getChannelMetadata(
+		channelName,
+		AGORA_RTM_CHANNEL_TYPE,
+	);
+	const missingInitialMetadataItems = [
+		!hasMetadataKey(existingMetadata, AGORA_RTM_ROOM_METADATA_KEY)
+			? createMetadataItem({
+					key: AGORA_RTM_ROOM_METADATA_KEY,
+					value: stringifyRoomMetadata(emptyRoomMetadata()),
+					revision: 0,
+				})
+			: null,
+		!hasMetadataKey(existingMetadata, AGORA_RTM_ADMISSION_METADATA_KEY)
+			? createMetadataItem({
+					key: AGORA_RTM_ADMISSION_METADATA_KEY,
+					value: stringifyRoomAdmissionMetadata(emptyRoomAdmissionMetadata()),
+					revision: 0,
+				})
+			: null,
+	].filter((item): item is ReturnType<typeof createMetadataItem> =>
+		Boolean(item),
+	);
+	if (missingInitialMetadataItems.length > 0) {
+		await rtm.storage
+			.setChannelMetadata(
+				channelName,
+				AGORA_RTM_CHANNEL_TYPE,
+				missingInitialMetadataItems,
+				{ majorRevision: -1 },
+			)
+			.catch(() => undefined);
+	}
+
 	const businessPresenceReady = waitForPresenceSnapshot(rtm, channelName);
 	await rtm.subscribe(channelName, {
 		withMessage: false,
@@ -281,39 +320,39 @@ export const joinGroupRtmSession = async ({
 		});
 	};
 
-		const setMetadata = async (
-			metadata: SttRoomMetadata,
-			lockName = AGORA_RTM_STT_LOCK_NAME,
-		) => {
-			await rtm.storage.setChannelMetadata(
-				channelName,
-				AGORA_RTM_CHANNEL_TYPE,
-				[
-					createMetadataItem({
-						key: AGORA_RTM_ROOM_METADATA_KEY,
-						value: stringifyRoomMetadata(metadata),
-						revision: -1,
-					}),
-				],
-				{ majorRevision: -1, lockName },
-			);
-			onMetadata(metadata);
-		};
+	const setMetadata = async (
+		metadata: SttRoomMetadata,
+		lockName = AGORA_RTM_STT_LOCK_NAME,
+	) => {
+		await rtm.storage.setChannelMetadata(
+			channelName,
+			AGORA_RTM_CHANNEL_TYPE,
+			[
+				createMetadataItem({
+					key: AGORA_RTM_ROOM_METADATA_KEY,
+					value: stringifyRoomMetadata(metadata),
+					revision: -1,
+				}),
+			],
+			{ majorRevision: -1, lockName },
+		);
+		onMetadata(metadata);
+	};
 
-		const setAdmissionMetadata = async (metadata: SttRoomAdmissionMetadata) => {
-			await rtm.storage.setChannelMetadata(
-				channelName,
-				AGORA_RTM_CHANNEL_TYPE,
-				[
-					createMetadataItem({
-						key: AGORA_RTM_ADMISSION_METADATA_KEY,
-						value: stringifyRoomAdmissionMetadata(metadata),
-						revision: -1,
-					}),
-				],
-				{ majorRevision: -1, lockName: AGORA_RTM_ADMISSION_LOCK_NAME },
-			);
-		};
+	const setAdmissionMetadata = async (metadata: SttRoomAdmissionMetadata) => {
+		await rtm.storage.setChannelMetadata(
+			channelName,
+			AGORA_RTM_CHANNEL_TYPE,
+			[
+				createMetadataItem({
+					key: AGORA_RTM_ADMISSION_METADATA_KEY,
+					value: stringifyRoomAdmissionMetadata(metadata),
+					revision: -1,
+				}),
+			],
+			{ majorRevision: -1, lockName: AGORA_RTM_ADMISSION_LOCK_NAME },
+		);
+	};
 
 	const releaseAdmissionSlot = async () => {
 		await ensureLock(AGORA_RTM_ADMISSION_LOCK_NAME);
@@ -324,8 +363,8 @@ export const joinGroupRtmSession = async ({
 			{ retry: false },
 		);
 		try {
-			const currentParticipantUserIds =
-				(await getAdmissionMetadata()).participantUserIds;
+			const currentParticipantUserIds = (await getAdmissionMetadata())
+				.participantUserIds;
 			const nextParticipantUserIds = currentParticipantUserIds.filter(
 				(participantUserId) => participantUserId !== userId,
 			);
@@ -348,14 +387,14 @@ export const joinGroupRtmSession = async ({
 
 	await ensureLock(AGORA_RTM_ADMISSION_LOCK_NAME);
 	await rtm.lock.acquireLock(
-			channelName,
-			AGORA_RTM_CHANNEL_TYPE,
-			AGORA_RTM_ADMISSION_LOCK_NAME,
-			{ retry: false },
-		);
+		channelName,
+		AGORA_RTM_CHANNEL_TYPE,
+		AGORA_RTM_ADMISSION_LOCK_NAME,
+		{ retry: false },
+	);
 	try {
-		const currentParticipantUserIds =
-			(await getAdmissionMetadata()).participantUserIds;
+		const currentParticipantUserIds = (await getAdmissionMetadata())
+			.participantUserIds;
 		const nextParticipantUserIds = currentParticipantUserIds.includes(userId)
 			? currentParticipantUserIds
 			: [...currentParticipantUserIds, userId];
